@@ -1,0 +1,35 @@
+services:
+  # finance_data_ingestion:
+  #   build: .
+  #   container_name: finance_data_ingestion
+  #   volumes:
+      # - .:/app
+    #command: python ingestion_scripts/recent_fin_data.py
+
+  postgres:
+    image: postgres:18
+    container_name: postgres_finance
+    environment:
+      POSTGRES_USER: finance_user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: finance_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_finance
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pgadmin.org
+      PGADMIN_DEFAULT_PASSWORD: password
+
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    
+volumes:
+  pgdata:
+  pgadmin_data: 
