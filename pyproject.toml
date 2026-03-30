@@ -14,5 +14,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "duckdb>=1.5.1",
     "sqlalchemy>=2.0.48",
 ]
