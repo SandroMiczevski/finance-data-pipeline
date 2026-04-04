@@ -1,7 +1,6 @@
 # If .secrets/fmp.py is a local file, add it to sys.path first:
 #import sys
 from pathlib import Path
-root_dir = Path.cwd().parent 
 
 import argparse
 import os
@@ -14,6 +13,7 @@ try:
 except ImportError:
     yf = None
 
+root_dir = os.path.dirname(os.getcwd())
 
 balance_sheet_dtype = {
     "Treasury Shares Number": "Int64",
@@ -344,17 +344,52 @@ company_info_dtype = {
     'trailingPegRatio': 'float64'
 }
 
+
+# Function to handle appending with column checking
+def append_with_column_check(existing_df, new_df):
+    """
+    Appends new_df to existing_df, ensuring column compatibility.
+    - Adds any new columns from new_df to the end of existing_df (columns that don't exist in existing_df)
+    - Reorders new_df columns to match existing_df's column order
+    - Appends all rows from new_df to existing_df
+    
+    Modifies existing_df in place. Does not return anything.
+    """
+    # Find new columns in new_df that don't exist in existing_df
+    new_columns = list(set(new_df.columns) - set(existing_df.columns))
+    if new_columns:
+        print(f"Warning: New columns {new_columns} found. Adding them to the DataFrame.")
+        # Add new columns to the end of existing_df with NaN
+        for col in new_columns:
+            existing_df[col] = pd.NA
+    
+    # Reindex new_df to match existing_df's column order
+    new_df_aligned = new_df.reindex(columns=existing_df.columns)
+    
+    # Append rows from new_df_aligned to existing_df
+    for _, row in new_df_aligned.iterrows():
+        existing_df.loc[len(existing_df)] = row
+
+
 def export_to_csv(data_dir: Path):
+
+    save_path = data_dir.parent / "CSV"
+    save_path.mkdir(exist_ok=True)
 
     try:
         with open(f"{data_dir / 'financials.json'}", "r") as f:
             print(f"Loading data from {data_dir / 'financials.json'}...")
             data = json.load(f)
 
-            for company in data:
+            # Initialize dataframes as None to load the first company
+            balance_sheet_df = None
+            income_statement_df = None
+            cash_flow_statement_df = None
+            company_info_df = None
+
+            for idx, company in enumerate(data):
                 
                 ticker = company.get("ticker", "N/A")
-
                 print(f"Processing data for {ticker}...")
 
                 balance_sheet = pd.DataFrame(company.get('balance_sheet', {}))
@@ -415,15 +450,25 @@ def export_to_csv(data_dir: Path):
                     company_info = company_info.reset_index().rename(columns={'index': 'report_date'})
                     company_info['report_date'] = pd.to_datetime(company_info['report_date'])
 
-                print(f"Exporting data for {ticker} to CSV...")
+                # For the first company, initialize the dataframes
+                if idx == 0:
+                    balance_sheet_df = balance_sheet
+                    income_statement_df = income_statement
+                    cash_flow_statement_df = cash_flow_statement
+                    company_info_df = company_info
+                else:
+                    # For subsequent companies, append using the column-checking function
+                    append_with_column_check(balance_sheet_df, balance_sheet)
+                    append_with_column_check(income_statement_df, income_statement)
+                    append_with_column_check(cash_flow_statement_df, cash_flow_statement)
+                    append_with_column_check(company_info_df, company_info)
 
-                balance_sheet.to_csv(f"{data_dir/'balance_sheet.csv'}", index=False, sep='\t', mode='a', header=not (data_dir / 'balance_sheet.csv').exists())
-                income_statement.to_csv(f"{data_dir/'income_statement.csv'}", index=False, sep='\t', mode='a', header=not (data_dir / 'income_statement.csv').exists())
-                cash_flow_statement.to_csv(f"{data_dir/'cash_flow_statement.csv'}", index=False, sep='\t', mode='a', header=not (data_dir / 'cash_flow_statement.csv').exists())
-                company_info.to_csv(f"{data_dir/'company_info.csv'}", index=False, sep='\t', mode='a', header=not (data_dir / 'company_info.csv').exists())
-
-                print(f"Data for {ticker} exported successfully.")
-                print("")
+            print(f"Exporting data to CSV...")
+            
+            balance_sheet_df.to_csv(f"{save_path/'balance_sheet.csv'}", index=False, sep='\t')
+            income_statement_df.to_csv(f"{save_path/'income_statement.csv'}", index=False, sep='\t')
+            cash_flow_statement_df.to_csv(f"{save_path/'cash_flow_statement.csv'}", index=False, sep='\t')
+            company_info_df.to_csv(f"{save_path/'company_info.csv'}", index=False, sep='\t')
 
     except Exception as ex:
         print(f"Error loading financials.json: {ex}")

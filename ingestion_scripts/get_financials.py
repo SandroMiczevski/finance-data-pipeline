@@ -116,7 +116,7 @@ def get_financials(ticker, years=None, source="yfinance"):
         raise ValueError("Unknown source: choose 'yfinance' or 'fmp'")
 
 
-def run(tickers, years=None, source="yfinance", output=None, pretty=False):
+def run(tickers, years=None, source="yfinance", output=None, pretty=False, save_dir=None):
     if isinstance(tickers, str):
         tickers = [tickers]
 
@@ -127,12 +127,12 @@ def run(tickers, years=None, source="yfinance", output=None, pretty=False):
         all_data.append(data)
 
     if output:
-        with open(output, "w", encoding="utf-8") as f:
+        with open(f"{save_dir}/{output}", "w", encoding="utf-8") as f:
             if pretty:
                 json.dump(all_data, f, indent=2)
             else:
                 json.dump(all_data, f)
-        print(f"Saved results to: {output}")
+        print(f"Saved results to: {save_dir}/{output}")
 
     return all_data
 
@@ -143,11 +143,20 @@ def parse_args():
     p.add_argument("--years", nargs="*", type=int, default=[], help="Year filters, e.g., 2020 2021")
     p.add_argument("--source", choices=["yfinance", "fmp"], default="yfinance", help="Data source")
     p.add_argument("--output", default="financials.json", help="Output JSON file")
+    p.add_argument("--save_dir", default="raw_data/JSON/", help="Directory to save output JSON")
     p.add_argument("--pretty", action="store_true", help="Pretty-print JSON")
     return p.parse_args()
 
-
 if __name__ == "__main__":
+    root_dir = os.path.dirname(os.getcwd())
+
     args = parse_args()
-    result = run(args.tickers, years=args.years, source=args.source, output=args.output, pretty=args.pretty)
+        
+    result = run(args.tickers, 
+                 years=args.years, 
+                 source=args.source, 
+                 output=args.output, 
+                 pretty=args.pretty, 
+                 save_dir=f"{root_dir}/{args.save_dir}")
+    
     print(json.dumps(result, indent=2) if args.pretty else json.dumps(result))
